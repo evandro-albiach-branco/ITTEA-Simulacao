@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>IITEA</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body { margin:0; font-family:Arial; }
+#map { height:100vh; }
+
+.panel {
+ position:absolute;
+ top:10px;
+ left:10px;
+ z-index:1000;
+ background:white;
+ padding:10px;
+ border-radius:8px;
+ box-shadow:0 0 6px rgba(0,0,0,0.2);
+ font-size:13px;
+}
+
+.info {
+ background:white;
+ padding:8px;
+ border-radius:6px;
+ box-shadow:0 0 6px rgba(0,0,0,0.2);
+}
+
+.legend i {
+ width:16px;
+ height:10px;
+ float:left;
+ margin-right:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="panel">
+<b>IITEA</b><br><br>
+
+M: <span id="valM">0.50</span><br>
+<input type="range" min="0" max="1" step="0.01" value="0.5"
+oninput="updateParam('M', this.value)"><br><br>
+
+Rel: <span id="valRel">0.50</span><br>
+<input type="range" min="0" max="1" step="0.01" value="0.5"
+oninput="updateParam('Rel', this.value)"><br><br>
+
+MS: <span id="valMS">0.50</span><br>
+<input type="range" min="0" max="1" step="0.01" value="0.5"
+oninput="updateParam('MS', this.value)">
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// MAPA
+const map = L.map('map').setView([-14,-52],4);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+// FORMULA
+function calcIITEA(M,Rel,MS){
+ const fRel = 0.10 + 0.90*Math.pow(Rel,0.70);
+ const gMS = 0.70 + 0.30*MS;
+ return Math.pow(M*fRel*gMS,0.45);
+}
+
+const state = {M:0.5,Rel:0.5,MS:0.5};
+
+// CORES
+function getColor(v){
+ if(v===null) return '#ccc';
+ if(v>=0.8) return '#d73027';
+ if(v>=0.6) return '#fc8d59';
+ if(v>=0.4) return '#fee08b';
+ if(v>=0.2) return '#91cf60';
+ return '#1a9850';
+}
+
+// INFO
+const info = L.control();
+
+info.onAdd = function(){
+ this._div = L.DomUtil.create('div','info');
+ this.update();
+ return this._div;
+};
+
+info.update = function(props){
+ this._div.innerHTML = props ?
+ `<b>${props.name}</b><br>IITEA: ${props.iitea===null?'sd':props.iitea.toFixed(3)}`
+ : 'Passe o mouse';
+};
+
+info.addTo(map);
+
+// 🔥 DADOS EMBUTIDOS (amostra leve para funcionar SEM erro)
+const data = {
+"type":"FeatureCollection",
+"features":[
+{"type":"Feature","properties":{"name":"Município A"},"geometry":{"type":"Polygon","coordinates":[[[-50,-10],[-49,-10],[-49,-11],[-50,-11],[-50,-10]]]}},
+{"type":"Feature","properties":{"name":"Município B"},"geometry":{"type":"Polygon","coordinates":[[[-49,-10],[-48,-10],[-48,-11],[-49,-11],[-49,-10]]]}}
+]
+};
+
+// gerar valores
+data.features.forEach(f=>{
+ if(Math.random()<0.6){
+  f.properties.iitea=null;
+ }else{
+  f.properties.iitea=calcIITEA(Math.random(),Math.random(),Math.random());
+ }
+});
+
+// camada
+let layer = L.geoJson(data,{
+ style:f=>({
+  fillColor:getColor(f.properties.iitea),
+  weight:1,
+  color:'#fff',
+  fillOpacity:0.8
+ }),
+ onEachFeature:(f,l)=>{
+  l.on({
+   mouseover:e=>{
+    e.target.setStyle({color:'#000'});
+    info.update(f.properties);
+   },
+   mouseout:e=>{
+    layer.resetStyle(e.target);
+    info.update();
+   }
+  });
+ }
+}).addTo(map);
+
+// sliders
+function updateParam(p,v){
+ state[p]=parseFloat(v);
+ document.getElementById("val"+p).innerText=parseFloat(v).toFixed(2);
+ updateMap();
+}
+
+function updateMap(){
+ layer.eachLayer(l=>{
+  let val = Math.random()<0.6 ? null :
+   calcIITEA(state.M,state.Rel,state.MS);
+
+  l.feature.properties.iitea=val;
+
+  l.setStyle({fillColor:getColor(val)});
+ });
+}
+</script>
+
+</body>
+</html>
